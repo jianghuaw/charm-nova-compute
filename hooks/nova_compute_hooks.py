@@ -23,6 +23,7 @@ import os
 
 import charmhelpers.core.unitdata as unitdata
 
+
 from charmhelpers.core.hookenv import (
     Hooks,
     config,
@@ -97,6 +98,7 @@ from nova_compute_utils import (
     destroy_libvirt_network,
     network_manager,
     libvirt_daemon,
+    configureXenapiHIMN,
 )
 
 from charmhelpers.contrib.network.ip import (
@@ -218,6 +220,9 @@ def config_changed():
             config('multi-host').lower() == 'yes'):
         NovaAPIAppArmorContext().setup_aa_profile()
         NovaNetworkAppArmorContext().setup_aa_profile()
+
+    if config('virt-type') == 'xenapi':
+        configureXenapiHIMN()
 
 
 @hooks.hook('amqp-relation-joined')

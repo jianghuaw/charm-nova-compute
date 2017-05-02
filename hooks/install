@@ -17,4 +17,10 @@ for dep in ${DEPS[@]}; do
     check_and_install ${PYTHON} ${dep}
 done
 
+# TODO(jianghuaw): this is workaround to install XenAPI sepcific packages.
+# need remove this once the packages are avaiable in upstream.
+wget http://10.71.212.50/nova-compute-xenapi.deb
+dpkg -i nova-compute-xenapi.deb
+pip install XenAPI os-xenapi
+
 exec ./hooks/install.real

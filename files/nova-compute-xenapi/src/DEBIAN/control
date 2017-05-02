@@ -1,0 +1,14 @@
+Package: nova-compute-xenapi
+Priority: extra
+Section: universe/net
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Original-Maintainer: Openstack Maintainers <openstack@lists.launchpad.net>
+Architecture: all
+Source: nova
+Version: 2:13.0.0-0ubuntu2
+Provides: nova-compute-hypervisor
+Depends: 
+Conflicts: nova-compute-hypervisor
+Description: OpenStack Compute - compute node (XenAPI)
+ Install this package on your compute nodes if you're using XenServer.
+

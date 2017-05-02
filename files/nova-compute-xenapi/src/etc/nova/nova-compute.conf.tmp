@@ -1,0 +1,15 @@
+[DEFAULT]
+compute_driver = xenapi.XenAPIDriver
+force_config_drive = True
+
+[libvirt]
+virt_type = qemu
+
+[xenserver]
+cache_images = all
+connection_url = http://169.254.0.1
+connection_username = root
+connection_password = xenroot
+vif_driver = nova.virt.xenapi.vif.XenAPIOpenVswitchDriver
+ovs_integration_bridge = br-int
+

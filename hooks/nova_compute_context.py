@@ -128,6 +128,25 @@ def nova_metadata_requirement():
     return enable, secret
 
 
+class NovaComputeXenAPIContext(context.OSContextGenerator):
+
+    '''
+    Determines various XenAPI options.
+    '''
+    def __call__(self):
+        # pull user config bound for nova-compute.conf
+        clusters = config('cluster-name')
+        if clusters is not None:
+            clusters = clusters.split(' ')
+        ctxt = {
+            'xenserver_host_ip': config('host-ip'),
+            'xenserver_host_username': config('host-username'),
+            'xenserver_host_password': config('host-password'),
+        }
+
+        return ctxt
+
+
 class NovaComputeLibvirtContext(context.OSContextGenerator):
 
     '''
@@ -244,9 +263,9 @@ class NovaComputeVirtContext(context.OSContextGenerator):
 
     def __call__(self):
         ctxt = {}
+        ctxt['virt_type'] = config('virt-type')
         _release = lsb_release()['DISTRIB_CODENAME'].lower()
         if CompareHostReleases(_release) >= "yakkety":
-            ctxt['virt_type'] = config('virt-type')
             ctxt['enable_live_migration'] = config('enable-live-migration')
         ctxt['resume_guests_state_on_host_boot'] =\
             config('resume-guests-state-on-host-boot')
