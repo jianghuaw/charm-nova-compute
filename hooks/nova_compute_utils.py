@@ -28,6 +28,8 @@ from subprocess import (
     CalledProcessError
 )
 
+from charmhelpers import utils
+
 from charmhelpers.fetch import (
     apt_update,
     apt_upgrade,
@@ -97,6 +99,7 @@ from nova_compute_context import (
     NovaComputeLibvirtContext,
     NovaComputeLibvirtOverrideContext,
     NovaComputeCephContext,
+    NovaComputeXenAPIContext,
     NeutronComputeContext,
     InstanceConsoleContext,
     CEPH_CONF,
@@ -210,6 +213,7 @@ BASE_RESOURCE_MAP = {
                      context.ImageServiceContext(),
                      context.OSConfigFlagContext(),
                      CloudComputeContext(),
+                     NovaComputeXenAPIContext(),
                      NovaComputeLibvirtContext(),
                      NovaComputeCephContext(),
                      context.SyslogContext(),
@@ -289,6 +293,9 @@ VIRT_TYPES = {
     'uml': ['nova-compute-uml'],
     'lxc': ['nova-compute-lxc'],
     'lxd': ['nova-compute-lxd'],
+    # TODO(jianghuaw) include nova-compute-xenapi once it's available in upstream.
+    'xenapi': [],
+    #'xenapi': ['nova-compute-xenapi'],
 }
 
 # Maps virt-type config to a libvirt URI.
@@ -324,7 +331,7 @@ def resource_map():
     hook execution.
     '''
     # TODO: Cache this on first call?
-    if config('virt-type').lower() == 'lxd':
+    if config('virt-type').lower() == 'lxd' or config('virt-type').lower() == 'xenapi':
         resource_map = deepcopy(BASE_RESOURCE_MAP)
     else:
         resource_map = deepcopy(LIBVIRT_RESOURCE_MAP)
@@ -825,7 +832,11 @@ def git_post_install(projects_yaml):
             os.remove(s['link'])
         os.symlink(s['src'], s['link'])
 
-    virt_type = VIRT_TYPES[config('virt-type')][0]
+    if config('virt-type').lower() == 'xenapi':
+        virt_type = 'nova-compute-xenapi'
+    else:
+        virt_type = VIRT_TYPES[config('virt-type')][0]
+
     nova_compute_conf = 'git/{}.conf'.format(virt_type)
     render(nova_compute_conf, '/etc/nova/nova-compute.conf', {}, perms=0o644)
     render('git/nova_sudoers', '/etc/sudoers.d/nova_sudoers', {}, perms=0o440)
@@ -1029,3 +1040,48 @@ def _pause_resume_helper(f, configs):
     f(assess_status_func(configs),
       services=services(),
       ports=None)
+
+
+def configureXenapiHIMN():
+    log("configureXenapiHIMN: Entry...")
+    # todo (wjh-fresh): disable himn interface instead of hardcoding and
+    # get endpoint_names from the configurations.
+    himn_eth = "eth2"
+    endpoint_names = ['br-eth0']
+    ret_code, _, _ = utils.detailed_execute(
+        'iptables', '-t', 'nat', '-C', 'POSTROUTING',
+        '-o', endpoint_names[0], '-j', 'MASQUERADE', allowed_return_codes=[1])
+    if ret_code != 1:
+        # already exist, just return.
+        log("configureXenapiHIMN: already done. Just return..")
+        return
+    log("configureXenapiHIMN: configuring HIMN...")
+    utils.execute("sed", "-i", "s/iface eth2 inet manual/iface eth2 inet dhcp/g", "/etc/network/interfaces")
+    utils.execute("ifdown", himn_eth)
+    utils.execute("ifup", himn_eth)
+
+    utils.execute('sed', '-i',
+                  's/.*net\.ipv4\.ip_forward.*=.*/net.ipv4.ip_forward=1/g',
+                  '/etc/sysctl.conf')
+    utils.execute('sysctl', 'net.ipv4.ip_forward=1')
+
+    for endpoint_name in endpoint_names:
+        utils.execute('iptables', '-t', 'nat', '-A', 'POSTROUTING',
+                      '-o', endpoint_name, '-j', 'MASQUERADE')
+        utils.execute('iptables', '-A', 'FORWARD',
+                      '-i', endpoint_name, '-o', himn_eth,
+                      '-m', 'state', '--state', 'RELATED,ESTABLISHED',
+                      '-j', 'ACCEPT')
+        utils.execute('iptables', '-A', 'FORWARD',
+                      '-i', himn_eth, '-o', endpoint_name,
+                      '-j', 'ACCEPT')
+
+    utils.execute('iptables', '-A', 'INPUT', '-i', himn_eth, '-j', 'ACCEPT')
+    utils.execute('iptables', '-t', 'filter', '-S', 'FORWARD')
+    utils.execute('iptables', '-t', 'nat', '-S', 'POSTROUTING')
+
+    # TODO(jianghuaw):
+    #   Empty the neutron events for vm boot. This is a workaround before neutron charm
+    #   is ready for XenAPI.
+    #vmops = "/usr/lib/python2.7/dist-packages/nova/virt/xenapi/vmops.py"
+    #utils.execute("sed", "-i", "s/# Only get network-vif-plugged events with VIF's status is not active./return []/g", vmops)

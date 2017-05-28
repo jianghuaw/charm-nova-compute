@@ -82,7 +82,7 @@ options:
     default: kvm
     description: |
       Virtualization flavor. Supported flavors are: kvm, xen, uml, lxc, qemu,
-      lxd.
+      lxd, xenapi.
 
       NOTE: Changing virtualization flavor after deployment is not supported.
   disk-cachemodes:
@@ -100,7 +100,7 @@ options:
     type: boolean
     default: False
     description: |
-      Configure libvirt or lxd for live migration.
+      Configure libvirt, xenapi or lxd for live migration.
 
       Live migration support for lxd is still considered experimental.
   migration-auth-type:
@@ -364,3 +364,18 @@ options:
     description: |
       This option determines whether to start guests that were running
       before the host rebooted
+  host-ip:
+    type: string
+    default: 'none'
+    description: |
+      the host IP.
+  host-username:
+    type: string
+    default: 'none'
+    description: |
+      the username for accessing host.
+  host-password:
+    type: string
+    default: 'none'
+    description: |
+      the password for accessing host.
