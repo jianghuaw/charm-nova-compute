@@ -432,7 +432,15 @@ def upgrade_charm():
 
 @hooks.hook('nova-ceilometer-relation-changed')
 @restart_on_change(restart_map())
-def nova_ceilometer_relation_changed():
+def nova_ceilometer_relation_changed(relid=None):
+    # wjh: expose virt types in relations
+    relation_data = {
+        'virt_type': config('virt-type'),
+        'host_ip': config('host-ip'),
+        'host_username': config('host-username'),
+        'host_password': config('host-password'),
+    }
+    relation_set(relation_id=relid, **relation_data)
     CONFIGS.write_all()
 
 
